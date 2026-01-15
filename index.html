@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>Badminton Pro V17</title>
+    <style>
+        /* --- 基础设置 --- */
+        * { touch-action: manipulation; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Arial Black', 'Arial', sans-serif;
+            margin: 0; padding: 0;
+            background-color: #111;
+            overflow: hidden; 
+            width: 100vw; height: 100vh;
+            display: flex; justify-content: center; align-items: center;
+        }
+
+        #appContainer {
+            width: 100vw; height: 100vh;
+            position: relative;
+            display: flex; flex-direction: column; justify-content: flex-start;
+            align-items: center;
+            transition: transform 0.5s ease;
+        }
+
+        #bgLayer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: url('background.jpg') no-repeat center center; 
+            background-size: cover;
+            filter: blur(8px) brightness(0.5);
+            z-index: -1; transform: scale(1.1);
+        }
+
+        /* --- 强制旋转逻辑 --- */
+        .force-landscape {
+            width: 100vh !important; height: 100vw !important;
+            transform: rotate(90deg);
+            position: absolute; top: 50%; left: 50%;
+            margin-left: -50vh; margin-top: -50vw;
+        }
+
+        #portraitHint {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10, 10, 10, 0.95); z-index: 9999;
+            display: none; flex-direction: column; justify-content: center; align-items: center;
+            text-align: center; padding: 20px; backdrop-filter: blur(10px);
+        }
+        .rotate-icon { width: 80px; height: 80px; fill: #FFD700; margin-bottom: 20px; animation: rotatePhone 2s infinite ease-in-out; }
+        @keyframes rotatePhone { 0% { transform: rotate(0deg); } 50% { transform: rotate(-90deg); } 100% { transform: rotate(0deg); } }
+
+        /* --- 顶部功能区 --- */
+        .top-bar {
+            width: 100%; height: 50px; 
+            display: flex; justify-content: center; align-items: center; gap: 15px;
+            z-index: 50; margin-top: 10px; flex-shrink: 0; 
+        }
+
+        .icon-btn { width: 30px; height: 30px; fill: rgba(255,255,255,0.8); cursor: pointer; filter: drop-shadow(0 2px 4px black); }
+        .mode-badge {
+            font-size: 0.9rem; font-weight: bold; color: #FFD700;
+            background: rgba(0,0,0,0.6); padding: 5px 12px; border-radius: 8px;
+            border: 1px solid rgba(255,215,0,0.5); text-transform: uppercase;
+        }
+        .format-select {
+            background: rgba(0,0,0,0.6); color: white; border: 1px solid rgba(255,255,255,0.3);
+            padding: 5px; border-radius: 8px; font-size: 0.8rem; font-weight: bold; outline: none; text-align: center;
+        }
+        .format-select option { background: #333; color: white; }
+
+        /* --- 主场地 --- */
+        .court {
+            display: flex; width: 95%; max-width: 950px; 
+            flex: 1; margin: 10px 0;
+            justify-content: space-between; align-items: center;
+            background: rgba(0, 0, 0, 0.4); padding: 10px 20px; 
+            border-radius: 20px; border: 4px solid rgba(255,255,255,0.8);
+            box-shadow: 0 10px 50px rgba(0,0,0,0.8);
+            position: relative; backdrop-filter: blur(10px);
+        }
+
+        .team {
+            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            position: relative; height: auto;
+        }
+
+        /* 核心修改 1: team-header 改为横向布局，并居中对齐 */
+        .team-header {
+            display: flex; 
+            flex-direction: row; /* 改为横向 */
+            align-items: center; /* 垂直居中 */
+            justify-content: center; /* 水平居中 */
+            width: 100%; 
+            margin-bottom: 5px; /* 稍微留一点点底，防止完全贴死 */
+            flex-shrink: 0; 
+            z-index: 5;
+        }
+        
+        /* 新增：名字包裹器，用于让两个名字保持竖直排列 */
+        .names-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .name-row {
+            font-size: clamp(12px, 3vh, 20px); 
+            font-weight: bold; text-transform: uppercase;
+            text-shadow: 1px 1px 2px black; letter-spacing: 1px;
+            margin: 0; line-height: 1.1; max-width: 100%; 
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            padding: 0;
+        }
+        .name-row.hidden { display: none; }
+
+        /* 核心修改 2: 编辑按钮样式调整 */
+        .edit-btn {
+            font-size: 0.8rem; 
+            /* 移除原本的 margin-top */
+            margin-top: 0; 
+            /* 添加左侧边距，拉开距离 */
+            margin-left: 15px; 
+            opacity: 0.6; cursor: pointer; color: white;
+            border: 1px solid white; border-radius: 50%; width: 20px; height: 20px; /* 稍微大一点点好点 */
+            display: flex; justify-content: center; align-items: center;
+        }
+
+        .red-team .name-row { color: #FF6B6B; }
+        .blue-team .name-row { color: #4D96FF; }
+
+        /* 微调：分数框的负边距稍微减小一点点，因为按钮移走了 */
+        .score-wrapper { 
+            display: flex; align-items: center; justify-content: center; gap: 5px; width: 100%;
+            flex: 1; position: relative;
+            margin-top: -5px; /* 从 -10px 改为 -5px，稍微松一点 */
+        }
+        
+        .score {
+            width: auto; min-width: 35%; height: auto; 
+            font-size: clamp(4rem, 18vh, 8rem); 
+            font-weight: 900; cursor: pointer;
+            background: rgba(255, 255, 255, 0.1); border-radius: 15px; 
+            padding: 5px 30px; 
+            border: 2px solid rgba(255,255,255,0.2); 
+            text-shadow: 2px 2px 10px rgba(0,0,0,0.5);
+            transition: transform 0.1s;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 5px;
+        }
+
+        .score:active { transform: scale(0.95); background: rgba(255,255,255,0.25); }
+        .score.deuce-mode { color: #FF4D4D !important; text-shadow: 0 0 30px red; animation: pulseRed 2s infinite; }
+
+        .shuttle-icon { 
+            width: clamp(20px, 5vh, 35px); height: clamp(20px, 5vh, 35px); 
+            fill: white; opacity: 0; filter: drop-shadow(0 0 5px white); transition: 0.3s; 
+        }
+        .shuttle-icon.active { opacity: 1; transform: scale(1.2); }
+
+        /* 中控 */
+        .controls { display: flex; flex-direction: column; align-items: center; padding: 0 10px; z-index: 10; justify-content: center; }
+        .sets-container {
+            background: rgba(0,0,0,0.7); padding: 5px 15px; border-radius: 12px;
+            margin-bottom: 10px; text-align: center; border: 2px solid #FFD700;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+        }
+        .sets-title { font-size: 0.6rem; color: #FFD700; margin-bottom: 2px; }
+        .sets-display { display: flex; justify-content: center; gap: 10px; font-size: 1.8rem; font-weight: bold; color: #FFD700; }
+        
+        .btn-reset {
+            background: white; color: #1E824C; border: none; padding: 8px 20px;
+            font-size: 0.8rem; font-weight: 800; border-radius: 50px; cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3); margin-bottom: 5px;
+        }
+        .btn-reset-all {
+            background: transparent; color: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.3);
+            padding: 4px 10px; font-size: 0.6rem; border-radius: 20px; cursor: pointer;
+        }
+
+        .deuce-label {
+            margin-top: 10px; font-size: 1.2rem; color: #FF4D4D; font-weight: 900; letter-spacing: 2px;
+            text-shadow: 0 0 10px red; visibility: hidden; animation: pulseFast 1s infinite alternate;
+        }
+
+        /* 底部区域 */
+        .bottom-area {
+            height: 80px; flex-shrink: 0;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            margin-bottom: 10px;
+        }
+
+        .game-point-display {
+            height: 40px; 
+            font-size: clamp(2rem, 5vh, 3.5rem); font-weight: 900; font-style: italic;
+            color: #FFD700; letter-spacing: 3px; visibility: hidden;
+            text-shadow: 0 0 10px #FFD700, 0 0 20px #FF4500;
+            animation: pulseGP 0.8s infinite alternate;
+        }
+
+        .undo-container {
+            margin-top: 5px; cursor: pointer; opacity: 0.7; transition: 0.2s;
+            display: flex; flex-direction: column; align-items: center;
+        }
+        .undo-container:hover { opacity: 1; transform: scale(1.1); }
+        .undo-icon { width: 30px; height: 30px; fill: white; filter: drop-shadow(0 2px 2px black); }
+        .undo-text { font-size: 0.7rem; margin-top: 2px; color: rgba(255,255,255,0.8); }
+
+        @keyframes pulseGP { from { transform: scale(1); opacity: 0.8; } to { transform: scale(1.1); opacity: 1; } }
+        @keyframes pulseRed { 0% { text-shadow: 0 0 10px red; } 50% { text-shadow: 0 0 30px red, 0 0 50px red; } 100% { text-shadow: 0 0 10px red; } }
+        @keyframes pulseFast { from { opacity: 0.5; } to { opacity: 1; } }
+
+        .win-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7); z-index: 999;
+            flex-direction: column; justify-content: center; align-items: center;
+            backdrop-filter: blur(3px);
+        }
+        .win-text {
+            font-size: clamp(4rem, 15vw, 6rem); font-weight: 900; color: #FFD700;
+            text-transform: uppercase; font-style: italic;
+            text-shadow: 0 0 20px #FFD700, 0 0 50px orange;
+            animation: winPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        .winner-name-display {
+            font-size: clamp(1.5rem, 5vw, 2.5rem); color: white; margin-top: 20px;
+            text-shadow: 0 0 10px black; font-weight: bold; animation: fadeIn 1s ease-in;
+            text-align: center; padding: 0 20px;
+        }
+        .close-hint { margin-top: 50px; font-size: 0.8rem; opacity: 0.5; animation: blink 2s infinite;}
+        @keyframes winPop { 0% { transform: scale(0) rotate(-20deg); opacity: 0; } 100% { transform: scale(1) rotate(0deg); opacity: 1; } }
+        @keyframes blink { 50% { opacity: 0.2; } }
+
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); z-index: 200;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+        }
+        .mode-btn { padding: 15px 30px; font-size: 1.5rem; margin: 10px; border: 2px solid white; background: transparent; color: white; border-radius: 15px; cursor: pointer; }
+
+    </style>
+</head>
+<body>
+
+    <svg style="display: none;">
+        <symbol id="icon-shuttle" viewBox="0 0 512 512"><path d="M495.6 156.9l-61.5-35.1c-13.7-7.8-31.2-3.1-39.1 10.6L288.6 322c-29.2-12.7-63.5-9.1-88.7 10.9l-11.4 9c-27 21.4-31.3 60.6-9.6 87.2l9.8 12c14.2 17.4 35 26.6 56.1 26.6 12.3 0 24.8-3.2 36.3-9.8l10.9-6.2c31.1-17.8 41.6-56.9 23.3-87l186.2-109.8c14-8 19-25.7 11.2-39.7zM246.4 429.9c-2.4 1.9-5.1 3.5-7.9 4.8l-10.9 6.2c-12.8 7.3-29.2 2.8-36.5-10-7.3-12.8-2.8-29.2 10-36.5l10.9-6.2c2.8-1.6 5.8-2.6 8.8-3.1-1.8-1.9-3.5-4-4.9-6.2l-1.3-2.1c-6.8-11.2-6.5-25.2 1.3-36.1l43 54.1c2.1 3.7-4.1 23-12.5 35.1zm227.1-285l-78.4 46.2 32.8-57.1c3.2-5.6 10.4-7.6 16-4.4l25.2 14.4c5.6 3.2 7.6 10.3 4.4 15.9zm-86.8-51l-25.8-14.7c-5.6-3.2-7.6-10.4-4.4-16l31.5-54.8c3.2-5.6 10.4-7.6 16-4.4l25.8 14.7c5.6 3.2 7.6 10.4 4.4 16l-31.5 54.8c-3.2 5.6-10.3 7.6-16 4.4zm-64.8 55.6l-67.6 39.9 28.3-49.3c3.2-5.6 10.4-7.6 16-4.4l24.6 14.1c5.6 3.2 7.6 10.4 4.4 16l-5.7 10-16.3-26.3zm-14.7-65.4l-23.7-13.6c-5.6-3.2-7.6-10.4-4.4-16l27.1-47.2c3.2-5.6 10.4-7.6 16-4.4l23.7 13.6c5.6 3.2 7.6 10.4 4.4 16l-27.1 47.2c-3.2 5.5-10.4 7.6-16 4.4z"/></symbol>
+        <symbol id="icon-globe" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></symbol>
+        <symbol id="icon-undo" viewBox="0 0 24 24"><path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></symbol>
+        <symbol id="icon-fullscreen" viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></symbol>
+    </svg>
+
+    <div id="portraitHint">
+        <svg class="rotate-icon"><path d="M16.48 2.52c3.27 1.55 5.61 4.72 5.97 8.48h1.5C23.44 4.84 18.29 0 12 0l-1 1-2-1 1-1-.01.01C7.2 2.05 5.06 6.13 5.06 6.13l1.83 1.2S8.38 3.53 10 2.64c.58-.32 1.34-.34 2-.04l4.48 2.12v-.01zM4 16.5l-3 4-1-1 3-4L4 16.5zM20 16.5l3 4 1-1-3-4-1 1zM2.52 7.52l4.48 2.12c.66.3 1.42.28 2-.04 1.62-.89 4.11-3.61 4.11-3.61l1.83 1.2s-2.14 4.08-5.93 6.12c-.36 3.76 1.98 6.93 5.25 8.48l4.48 2.12v-14l-4.48-2.12c-.66-.3-1.42-.28-2 .04-1.62.89-4.11 3.61-4.11 3.61L8.3 7.23s2.14-4.08 5.93-6.12C14.59-2.65 12.25-5.82 8.98-7.37L4.5-9.49v14l4.48 2.12c.66.3 1.42.28 2-.04 1.62-.89 4.11-3.61 4.11-3.61l1.83 1.2s-2.14 4.08-5.93 6.12c-.36 3.76 1.98 6.93 5.25 8.48l4.48 2.12v-14l-4.48-2.12c-.66-.3-1.42-.28-2 .04-1.62.89-4.11 3.61-4.11 3.61L8.3 7.23s2.14-4.08 5.93-6.12C14.59-2.65 12.25-5.82 8.98-7.37L4.5-9.49v14l4.48 2.12c.66.3 1.42.28 2-.04 1.62-.89 4.11-3.61 4.11-3.61l1.83 1.2s-2.14 4.08-5.93 6.12c-.36 3.76 1.98 6.93 5.25 8.48l4.48 2.12v-14l-4.48-2.12z" transform="scale(0.8)" style="fill:white;"/></svg>
+        <div style="font-size: 1.2rem; color: #FFD700; font-weight: bold;">PLEASE ROTATE</div>
+    </div>
+
+    <div id="appContainer">
+        <div id="bgLayer"></div>
+
+        <div class="top-bar">
+            <svg class="icon-btn" onclick="toggleLanguage()"><use href="#icon-globe"></use></svg>
+            <div id="modeDisplay" class="mode-badge">21 PTS</div>
+            <select id="formatSelect" class="format-select" onchange="changeFormat()">
+                <option value="MD">Men's Double</option>
+                <option value="WD">Women's Double</option>
+                <option value="XD">Mixed Double</option>
+                <option value="MS">Men's Single</option>
+                <option value="WS">Women's Single</option>
+            </select>
+            <svg class="icon-btn" onclick="toggleFullScreen()"><use href="#icon-fullscreen"></use></svg>
+        </div>
+
+        <div class="court">
+            <div class="team red-team">
+                <div class="team-header">
+                    <div class="names-wrapper">
+                        <div class="name-row" id="redP1">Player 1</div>
+                        <div class="name-row" id="redP2">Player 2</div>
+                    </div>
+                    <div class="edit-btn" onclick="editName('red')">✎</div>
+                </div>
+                <div class="score-wrapper">
+                    <svg class="shuttle-icon" id="serveRed"><use href="#icon-shuttle"></use></svg>
+                    <div class="score" id="scoreRed" onclick="addScore('red')">0</div>
+                </div>
+            </div>
+
+            <div class="controls">
+                <div class="sets-container">
+                    <div id="setTitle" class="sets-title">SETS</div>
+                    <div class="sets-display">
+                        <div class="set-score" id="setRed" onclick="addSetScore('red')">0</div>
+                        <div>:</div>
+                        <div class="set-score" id="setBlue" onclick="addSetScore('blue')">0</div>
+                    </div>
+                </div>
+                
+                <button id="btnReset" class="btn-reset" onclick="resetGame()">RESET</button>
+                <button id="btnResetAll" class="btn-reset-all" onclick="resetAll()">RESET ALL</button>
+                
+                <div id="deuceText" class="deuce-label">DEUCE</div>
+            </div>
+
+            <div class="team blue-team">
+                <div class="team-header">
+                    <div class="names-wrapper">
+                        <div class="name-row" id="blueP1">Player 1</div>
+                        <div class="name-row" id="blueP2">Player 2</div>
+                    </div>
+                    <div class="edit-btn" onclick="editName('blue')">✎</div>
+                </div>
+                 <div class="score-wrapper">
+                    <div class="score" id="scoreBlue" onclick="addScore('blue')">0</div>
+                    <svg class="shuttle-icon" id="serveBlue"><use href="#icon-shuttle"></use></svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="bottom-area">
+            <div id="gamePointText" class="game-point-display">GAME POINT</div>
+            <div class="undo-container" onclick="undo()">
+                <svg class="undo-icon"><use href="#icon-undo"></use></svg>
+                <div class="undo-text">UNDO</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="winOverlay" class="win-overlay" onclick="closeWinOverlay()">
+        <div id="winText" class="win-text">WINNER!</div>
+        <div id="winTeamName" class="winner-name-display">Red Team</div>
+        <div class="close-hint">(Tap to continue)</div>
+    </div>
+
+    <div id="setupModal" class="modal-overlay">
+        <h2 id="modalTitle" style="color: #FFD700; margin-bottom: 20px;">SELECT SCORE MODE</h2>
+        <div>
+            <button class="mode-btn" onclick="selectMode(21)">21</button>
+            <button class="mode-btn" onclick="selectMode(30)">30</button>
+        </div>
+    </div>
+
+    <script>
+        // --- 逻辑 JS (完全不变) ---
+        let red = 0; let blue = 0;
+        let setRed = 0; let setBlue = 0;
+        let targetScore = 21;
+        let isGameOver = false;
+        let currentLang = 'en'; 
+        let historyStack = [];
+
+        let defaultNames = {
+            zh: { p1: "选手 1", p2: "选手 2" },
+            en: { p1: "Player 1", p2: "Player 2" }
+        };
+
+        const texts = {
+            zh: {
+                modalTitle: "选择赛制", mode21: "21 分制", mode30: "30 分制",
+                setTitle: "大比分", btnReset: "重置本局", btnResetAll: "重置所有",
+                gamePoint: "赛点 ! ! !", win: "获胜 ! ! !",
+                msgResetGame: "重置本局比分？(大比分将保留)",
+                msgResetAll: "⚠️ 重置所有？\n这将清除大比分和名字！",
+                options: ["男双", "女双", "混双", "男单", "女单"],
+                promptP1: "输入第一位选手名字:", promptP2: "输入第二位选手名字:",
+            },
+            en: {
+                modalTitle: "SELECT SCORE MODE", mode21: "21 PTS", mode30: "30 PTS",
+                setTitle: "SETS", btnReset: "RESET", btnResetAll: "RESET ALL",
+                gamePoint: "GAME POINT !!!", win: "WINNER !!!",
+                msgResetGame: "Reset current game score?",
+                msgResetAll: "⚠️ RESET ALL?\nClears sets and names!",
+                options: ["Men's Double", "Women's Double", "Mixed Double", "Men's Single", "Women's Single"],
+                promptP1: "Enter Name for Player 1:", promptP2: "Enter Name for Player 2:",
+            }
+        };
+
+        window.onload = function() { 
+            document.getElementById('setupModal').style.display = 'flex'; 
+            changeFormat(); 
+            checkOrientation(); 
+        };
+
+        function checkOrientation() {
+            if (window.innerHeight > window.innerWidth) {
+                document.getElementById('portraitHint').style.display = 'flex';
+                setTimeout(() => {
+                    document.getElementById('portraitHint').style.display = 'none';
+                    if (window.innerHeight > window.innerWidth) {
+                        document.getElementById('appContainer').classList.add('force-landscape');
+                    }
+                }, 3000);
+            } else {
+                document.getElementById('portraitHint').style.display = 'none';
+                document.getElementById('appContainer').classList.remove('force-landscape');
+            }
+        }
+
+        window.addEventListener('resize', () => {
+             setTimeout(() => {
+                 if (window.innerWidth > window.innerHeight) {
+                    document.getElementById('portraitHint').style.display = 'none';
+                    document.getElementById('appContainer').classList.remove('force-landscape');
+                 }
+             }, 100);
+        });
+
+        function toggleFullScreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(e=>{});
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        function toggleLanguage() {
+            currentLang = currentLang === 'zh' ? 'en' : 'zh';
+            updateUITexts();
+        }
+
+        function updateUITexts() {
+            const t = texts[currentLang];
+            document.getElementById('modalTitle').innerText = t.modalTitle;
+            document.getElementById('modeDisplay').innerText = targetScore === 21 ? t.mode21 : t.mode30;
+            document.getElementById('setTitle').innerText = t.setTitle;
+            document.getElementById('btnReset').innerText = t.btnReset;
+            document.getElementById('btnResetAll').innerText = t.btnResetAll;
+            document.getElementById('gamePointText').innerText = t.gamePoint;
+            document.getElementById('winText').innerText = t.win;
+
+            const select = document.getElementById('formatSelect');
+            const opts = t.options;
+            select.options[0].text = opts[0];
+            select.options[1].text = opts[1];
+            select.options[2].text = opts[2];
+            select.options[3].text = opts[3];
+            select.options[4].text = opts[4];
+        }
+
+        function changeFormat() {
+            const val = document.getElementById('formatSelect').value;
+            const isSingle = (val === 'MS' || val === 'WS');
+            if (isSingle) {
+                document.getElementById('redP2').classList.add('hidden');
+                document.getElementById('blueP2').classList.add('hidden');
+            } else {
+                document.getElementById('redP2').classList.remove('hidden');
+                document.getElementById('blueP2').classList.remove('hidden');
+            }
+        }
+        
+        function selectMode(mode) {
+            targetScore = mode; 
+            document.getElementById('modeDisplay').innerText = (currentLang === 'zh') ? mode + " 分制" : mode + " PTS";
+            resetGameLogic();
+            document.getElementById('setupModal').style.display = 'none';
+        }
+
+        function saveState() {
+            const state = {
+                red: red, blue: blue, setRed: setRed, setBlue: setBlue,
+                isGameOver: isGameOver,
+                serveRed: document.getElementById('serveRed').classList.contains('active'),
+                serveBlue: document.getElementById('serveBlue').classList.contains('active')
+            };
+            historyStack.push(state);
+            if (historyStack.length > 20) historyStack.shift();
+        }
+
+        function undo() {
+            if (historyStack.length === 0) return;
+            const state = historyStack.pop();
+            red = state.red; blue = state.blue;
+            setRed = state.setRed; setBlue = state.setBlue;
+            isGameOver = state.isGameOver;
+
+            if(state.serveRed) {
+                document.getElementById('serveRed').classList.add('active');
+                document.getElementById('serveBlue').classList.remove('active');
+            } else if(state.serveBlue) {
+                document.getElementById('serveBlue').classList.add('active');
+                document.getElementById('serveRed').classList.remove('active');
+            } else {
+                document.getElementById('serveRed').classList.remove('active');
+                document.getElementById('serveBlue').classList.remove('active');
+            }
+            updateDisplay(); checkVisuals();
+            document.getElementById('winOverlay').style.display = 'none';
+        }
+
+        function resetGame() {
+            if(confirm(texts[currentLang].msgResetGame)) { saveState(); resetGameLogic(); }
+        }
+
+        function resetAll() {
+            if(confirm(texts[currentLang].msgResetAll)) {
+                saveState(); setRed = 0; setBlue = 0;
+                const def = defaultNames[currentLang];
+                document.getElementById('redP1').innerText = def.p1;
+                document.getElementById('redP2').innerText = def.p2;
+                document.getElementById('blueP1').innerText = def.p1;
+                document.getElementById('blueP2').innerText = def.p2;
+                document.getElementById('setupModal').style.display = 'flex'; 
+                resetGameLogic();
+            }
+        }
+
+        function resetGameLogic() {
+            red = 0; blue = 0; isGameOver = false; updateDisplay();
+            document.getElementById('winOverlay').style.display = 'none';
+            document.getElementById('serveRed').classList.remove('active');
+            document.getElementById('serveBlue').classList.remove('active');
+            checkVisuals();
+        }
+
+        function editName(team) {
+            const t = texts[currentLang];
+            const isSingle = document.getElementById(team + 'P2').classList.contains('hidden');
+            let p1El = document.getElementById(team + 'P1');
+            let newP1 = prompt(t.promptP1, p1El.innerText);
+            if (newP1 && newP1.trim()) p1El.innerText = newP1.trim();
+            if (!isSingle) {
+                let p2El = document.getElementById(team + 'P2');
+                let newP2 = prompt(t.promptP2, p2El.innerText);
+                if (newP2 && newP2.trim()) p2El.innerText = newP2.trim();
+            }
+        }
+
+        function addSetScore(team) {
+            saveState(); 
+            if (team === 'red') setRed++; else setBlue++; updateDisplay();
+        }
+
+        function addScore(team) {
+            if (isGameOver) return;
+            saveState();
+            document.getElementById('serveRed').classList.remove('active');
+            document.getElementById('serveBlue').classList.remove('active');
+            document.getElementById(team === 'red' ? 'serveRed' : 'serveBlue').classList.add('active');
+            if (team === 'red') red++; else blue++;
+            checkGameLogic(); updateDisplay();
+        }
+
+        function checkGameLogic() {
+            let didWin = false;
+            if (targetScore === 21) {
+                if (red === 30) { winGame('red'); didWin=true; }
+                else if (blue === 30) { winGame('blue'); didWin=true; }
+                else if (red >= 21 && (red - blue >= 2)) { winGame('red'); didWin=true; }
+                else if (blue >= 21 && (blue - red >= 2)) { winGame('blue'); didWin=true; }
+            } else {
+                if (red >= 30) { winGame('red'); didWin=true; }
+                else if (blue >= 30) { winGame('blue'); didWin=true; }
+            }
+            if (!didWin) checkVisuals();
+        }
+
+        function checkVisuals() {
+            if (isGameOver) return;
+            let isGamePoint = false;
+            let maxS = Math.max(red, blue);
+            let minS = Math.min(red, blue);
+            
+            if (targetScore === 21) {
+                if (maxS === 20 && minS < 20) isGamePoint = true;
+                else if (maxS >= 20 && (maxS - minS === 1)) isGamePoint = true;
+                else if (red === 29 && blue === 29) isGamePoint = true;
+            } else {
+                if (maxS === 29) isGamePoint = true;
+            }
+            
+            let gpEl = document.getElementById('gamePointText');
+            gpEl.style.visibility = isGamePoint ? 'visible' : 'hidden';
+
+            let scoreRedEl = document.getElementById('scoreRed');
+            let scoreBlueEl = document.getElementById('scoreBlue');
+            let isDeucePhase = (targetScore === 21 && red >= 20 && blue >= 20);
+            let deuceLabel = document.getElementById('deuceText');
+            
+            if (isDeucePhase) {
+                scoreRedEl.classList.add('deuce-mode');
+                scoreBlueEl.classList.add('deuce-mode');
+                deuceLabel.style.visibility = 'visible';
+            } else {
+                scoreRedEl.classList.remove('deuce-mode');
+                scoreBlueEl.classList.remove('deuce-mode');
+                deuceLabel.style.visibility = 'hidden';
+            }
+        }
+
+        function winGame(winner) {
+            isGameOver = true;
+            document.getElementById('gamePointText').style.visibility = 'hidden';
+            
+            let name1 = document.getElementById(winner + 'P1').innerText;
+            let name2 = document.getElementById(winner + 'P2').innerText;
+            let isSingle = document.getElementById(winner + 'P2').classList.contains('hidden');
+            let winNameDisplay = name1;
+            if (!isSingle) winNameDisplay += " & " + name2;
+
+            document.getElementById('winTeamName').innerText = winNameDisplay;
+            document.getElementById('winOverlay').style.display = 'flex';
+        }
+
+        function closeWinOverlay() {
+            document.getElementById('winOverlay').style.display = 'none';
+        }
+
+        function updateDisplay() {
+            document.getElementById('scoreRed').innerText = red;
+            document.getElementById('scoreBlue').innerText = blue;
+            document.getElementById('setRed').innerText = setRed;
+            document.getElementById('setBlue').innerText = setBlue;
+        }
+    </script>
+</body>
+</html>
