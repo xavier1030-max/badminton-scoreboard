@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
-    <title>Badminton Pro V17</title>
+    <title>Badminton Pro V18</title>
     <style>
         /* --- 基础设置 --- */
         * { touch-action: manipulation; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; box-sizing: border-box; }
@@ -59,7 +59,9 @@
             z-index: 50; margin-top: 10px; flex-shrink: 0; 
         }
 
-        .icon-btn { width: 30px; height: 30px; fill: rgba(255,255,255,0.8); cursor: pointer; filter: drop-shadow(0 2px 4px black); }
+        .icon-btn { width: 30px; height: 30px; fill: rgba(255,255,255,0.8); cursor: pointer; filter: drop-shadow(0 2px 4px black); transition: transform 0.1s;}
+        .icon-btn:active { transform: scale(0.9); }
+
         .mode-badge {
             font-size: 0.9rem; font-weight: bold; color: #FFD700;
             background: rgba(0,0,0,0.6); padding: 5px 12px; border-radius: 8px;
@@ -87,55 +89,35 @@
             position: relative; height: auto;
         }
 
-        /* 核心修改 1: team-header 改为横向布局，并居中对齐 */
         .team-header {
-            display: flex; 
-            flex-direction: row; /* 改为横向 */
-            align-items: center; /* 垂直居中 */
-            justify-content: center; /* 水平居中 */
-            width: 100%; 
-            margin-bottom: 5px; /* 稍微留一点点底，防止完全贴死 */
-            flex-shrink: 0; 
-            z-index: 5;
+            display: flex; flex-direction: row; align-items: center; justify-content: center;
+            width: 100%; margin-bottom: 2px; flex-shrink: 0; z-index: 5;
         }
         
-        /* 新增：名字包裹器，用于让两个名字保持竖直排列 */
-        .names-wrapper {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
+        .names-wrapper { display: flex; flex-direction: column; align-items: center; }
 
         .name-row {
             font-size: clamp(12px, 3vh, 20px); 
             font-weight: bold; text-transform: uppercase;
             text-shadow: 1px 1px 2px black; letter-spacing: 1px;
             margin: 0; line-height: 1.1; max-width: 100%; 
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-            padding: 0;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0;
         }
         .name-row.hidden { display: none; }
 
-        /* 核心修改 2: 编辑按钮样式调整 */
         .edit-btn {
-            font-size: 0.8rem; 
-            /* 移除原本的 margin-top */
-            margin-top: 0; 
-            /* 添加左侧边距，拉开距离 */
-            margin-left: 15px; 
+            font-size: 0.8rem; margin-top: 0; margin-left: 15px;
             opacity: 0.6; cursor: pointer; color: white;
-            border: 1px solid white; border-radius: 50%; width: 20px; height: 20px; /* 稍微大一点点好点 */
+            border: 1px solid white; border-radius: 50%; width: 20px; height: 20px;
             display: flex; justify-content: center; align-items: center;
         }
 
         .red-team .name-row { color: #FF6B6B; }
         .blue-team .name-row { color: #4D96FF; }
 
-        /* 微调：分数框的负边距稍微减小一点点，因为按钮移走了 */
         .score-wrapper { 
             display: flex; align-items: center; justify-content: center; gap: 5px; width: 100%;
-            flex: 1; position: relative;
-            margin-top: -5px; /* 从 -10px 改为 -5px，稍微松一点 */
+            flex: 1; position: relative; margin-top: -5px; 
         }
         
         .score {
@@ -187,7 +169,7 @@
 
         /* 底部区域 */
         .bottom-area {
-            height: 80px; flex-shrink: 0;
+            height: auto; flex-shrink: 0;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             margin-bottom: 10px;
         }
@@ -207,6 +189,14 @@
         .undo-container:hover { opacity: 1; transform: scale(1.1); }
         .undo-icon { width: 30px; height: 30px; fill: white; filter: drop-shadow(0 2px 2px black); }
         .undo-text { font-size: 0.7rem; margin-top: 2px; color: rgba(255,255,255,0.8); }
+
+        /* 新增：Footer */
+        .footer-info {
+            margin-top: 10px; font-size: 0.6rem; color: rgba(255,255,255,0.3);
+            text-align: center; cursor: pointer; text-shadow: 0 1px 2px black;
+            padding: 5px;
+        }
+        .footer-info:hover { color: white; }
 
         @keyframes pulseGP { from { transform: scale(1); opacity: 0.8; } to { transform: scale(1.1); opacity: 1; } }
         @keyframes pulseRed { 0% { text-shadow: 0 0 10px red; } 50% { text-shadow: 0 0 30px red, 0 0 50px red; } 100% { text-shadow: 0 0 10px red; } }
@@ -249,10 +239,12 @@
         <symbol id="icon-globe" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></symbol>
         <symbol id="icon-undo" viewBox="0 0 24 24"><path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></symbol>
         <symbol id="icon-fullscreen" viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></symbol>
+        <symbol id="icon-sound-on" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></symbol>
+        <symbol id="icon-sound-off" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73 4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></symbol>
     </svg>
 
     <div id="portraitHint">
-        <svg class="rotate-icon"><path d="M16.48 2.52c3.27 1.55 5.61 4.72 5.97 8.48h1.5C23.44 4.84 18.29 0 12 0l-1 1-2-1 1-1-.01.01C7.2 2.05 5.06 6.13 5.06 6.13l1.83 1.2S8.38 3.53 10 2.64c.58-.32 1.34-.34 2-.04l4.48 2.12v-.01zM4 16.5l-3 4-1-1 3-4L4 16.5zM20 16.5l3 4 1-1-3-4-1 1zM2.52 7.52l4.48 2.12c.66.3 1.42.28 2-.04 1.62-.89 4.11-3.61 4.11-3.61l1.83 1.2s-2.14 4.08-5.93 6.12c-.36 3.76 1.98 6.93 5.25 8.48l4.48 2.12v-14l-4.48-2.12c-.66-.3-1.42-.28-2 .04-1.62.89-4.11 3.61-4.11 3.61L8.3 7.23s2.14-4.08 5.93-6.12C14.59-2.65 12.25-5.82 8.98-7.37L4.5-9.49v14l4.48 2.12c.66.3 1.42.28 2-.04 1.62-.89 4.11-3.61 4.11-3.61l1.83 1.2s-2.14 4.08-5.93 6.12c-.36 3.76 1.98 6.93 5.25 8.48l4.48 2.12v-14l-4.48-2.12c-.66-.3-1.42-.28-2 .04-1.62.89-4.11 3.61-4.11 3.61L8.3 7.23s2.14-4.08 5.93-6.12C14.59-2.65 12.25-5.82 8.98-7.37L4.5-9.49v14l4.48 2.12c.66.3 1.42.28 2-.04 1.62-.89 4.11-3.61 4.11-3.61l1.83 1.2s-2.14 4.08-5.93 6.12c-.36 3.76 1.98 6.93 5.25 8.48l4.48 2.12v-14l-4.48-2.12z" transform="scale(0.8)" style="fill:white;"/></svg>
+        <svg class="rotate-icon"><path d="M16.48 2.52c3.27 1.55 5.61 4.72 5.97 8.48h1.5C23.44 4.84 18.29 0 12 0l-1 1-2-1 1-1-.01.01C7.2 2.05 5.06 6.13 5.06 6.13l1.83 1.2S8.38 3.53 10 2.64c.58-.32 1.34-.34 2-.04l4.48 2.12v-.01zM4 16.5l-3 4-1-1 3-4L4 16.5zM20 16.5l3 4 1-1-3-4-1 1zM2.52 7.52l4.48 2.12c.66.3 1.42.28 2-.04 1.62-.89 4.11-3.61 4.11-3.61l1.83 1.2s-2.14 4.08-5.93 6.12c-.36 3.76 1.98 6.93 5.25 8.48l4.48 2.12v-14l-4.48-2.12c-.66-.3-1.42-.28-2 .04-1.62.89-4.11 3.61-4.11 3.61L8.3 7.23s2.14-4.08 5.93-6.12C14.59-2.65 12.25-5.82 8.98-7.37L4.5-9.49v14l4.48 2.12c.66.3 1.42.28 2-.04 1.62-.89 4.11-3.61 4.11-3.61l1.83 1.2s-2.14 4.08-5.93 6.12c-.36 3.76 1.98 6.93 5.25 8.48l4.48 2.12v-14l-4.48-2.12z" transform="scale(0.8)" style="fill:white;"/></svg>
         <div style="font-size: 1.2rem; color: #FFD700; font-weight: bold;">PLEASE ROTATE</div>
     </div>
 
@@ -262,6 +254,8 @@
         <div class="top-bar">
             <svg class="icon-btn" onclick="toggleLanguage()"><use href="#icon-globe"></use></svg>
             <div id="modeDisplay" class="mode-badge">21 PTS</div>
+            <svg class="icon-btn" id="soundBtn" onclick="toggleSound()"><use id="soundIconUse" href="#icon-sound-on"></use></svg>
+            
             <select id="formatSelect" class="format-select" onchange="changeFormat()">
                 <option value="MD">Men's Double</option>
                 <option value="WD">Women's Double</option>
@@ -324,6 +318,10 @@
                 <svg class="undo-icon"><use href="#icon-undo"></use></svg>
                 <div class="undo-text">UNDO</div>
             </div>
+            
+            <div class="footer-info" onclick="window.open('https://www.facebook.com/www.luchenchong/')">
+                Designed by Xavier Chong © 2026
+            </div>
         </div>
     </div>
 
@@ -342,13 +340,60 @@
     </div>
 
     <script>
-        // --- 逻辑 JS (完全不变) ---
         let red = 0; let blue = 0;
         let setRed = 0; let setBlue = 0;
         let targetScore = 21;
         let isGameOver = false;
         let currentLang = 'en'; 
         let historyStack = [];
+        let isSoundOn = true; // 默认开启音效
+
+        // --- 音效核心代码 (Web Audio API) ---
+        // 兼容性写法
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const audioCtx = new AudioContext();
+
+        function playTone(freq, type, duration) {
+            if (!isSoundOn) return;
+            // 每次播放都需要 resume，防止浏览器阻止自动播放
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            osc.type = type; // 'sine', 'square', 'triangle'
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime); // 音量
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        // 预设几种音效
+        const sounds = {
+            click: () => playTone(880, 'sine', 0.1), // 高音哔 (加分)
+            undo: () => playTone(300, 'triangle', 0.2), // 低音嘟 (撤销/重置)
+            win: () => { // 胜利琶音
+                if (!isSoundOn) return;
+                let now = audioCtx.currentTime;
+                [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+                    setTimeout(() => playTone(freq, 'square', 0.2), i * 150);
+                });
+            }
+        };
+
+        function toggleSound() {
+            isSoundOn = !isSoundOn;
+            document.getElementById('soundIconUse').setAttribute('href', isSoundOn ? '#icon-sound-on' : '#icon-sound-off');
+            document.getElementById('soundBtn').style.opacity = isSoundOn ? '1' : '0.5';
+        }
+
+        // --- 原有逻辑 ---
 
         let defaultNames = {
             zh: { p1: "选手 1", p2: "选手 2" },
@@ -470,6 +515,10 @@
 
         function undo() {
             if (historyStack.length === 0) return;
+            
+            // 播放音效
+            sounds.undo();
+
             const state = historyStack.pop();
             red = state.red; blue = state.blue;
             setRed = state.setRed; setBlue = state.setBlue;
@@ -490,7 +539,11 @@
         }
 
         function resetGame() {
-            if(confirm(texts[currentLang].msgResetGame)) { saveState(); resetGameLogic(); }
+            if(confirm(texts[currentLang].msgResetGame)) { 
+                saveState(); 
+                resetGameLogic(); 
+                sounds.undo(); // 重置也播放 undo 音效
+            }
         }
 
         function resetAll() {
@@ -503,6 +556,7 @@
                 document.getElementById('blueP2').innerText = def.p2;
                 document.getElementById('setupModal').style.display = 'flex'; 
                 resetGameLogic();
+                sounds.undo();
             }
         }
 
@@ -529,12 +583,18 @@
 
         function addSetScore(team) {
             saveState(); 
-            if (team === 'red') setRed++; else setBlue++; updateDisplay();
+            if (team === 'red') setRed++; else setBlue++; 
+            updateDisplay();
+            sounds.click();
         }
 
         function addScore(team) {
             if (isGameOver) return;
             saveState();
+            
+            // 播放点击音效
+            sounds.click();
+
             document.getElementById('serveRed').classList.remove('active');
             document.getElementById('serveBlue').classList.remove('active');
             document.getElementById(team === 'red' ? 'serveRed' : 'serveBlue').classList.add('active');
@@ -593,6 +653,9 @@
             isGameOver = true;
             document.getElementById('gamePointText').style.visibility = 'hidden';
             
+            // 播放胜利音效
+            sounds.win();
+
             let name1 = document.getElementById(winner + 'P1').innerText;
             let name2 = document.getElementById(winner + 'P2').innerText;
             let isSingle = document.getElementById(winner + 'P2').classList.contains('hidden');
